@@ -1,0 +1,2 @@
+class DisplayTile < SimpleDelegator
+end

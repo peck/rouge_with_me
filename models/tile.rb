@@ -44,7 +44,7 @@ class Tile
   end
 
   def distance(tile: tile)
-    (manhattan_distance(tile: tile)*10).floor.to_i
+    manhattan_distance(tile: tile)*10
   end
 
 

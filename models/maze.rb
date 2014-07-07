@@ -1,43 +1,77 @@
 class Maze
-  attr_reader :row_count, :column_count, :rooms
+  attr_reader :row_count, :column_count, :rooms, :room_min_rows, :room_max_rows, :room_min_columns, :room_max_columns
 
   def initialize(row_count: 10, column_count: 10, num_rooms: 10)
     @row_count = row_count
     @col_count = column_count
-    @tiles = []
     @num_rooms = num_rooms
-    @room_min_width = 4
-    @room_max_width = 10
-    @room_min_height = 3
-    @room_max_height = 10
+    @room_min_columns = 5
+    @room_max_columns = 10
+    @room_min_rows = 5
+    @room_max_rows = 10
     @rooms = []
     @passageways = []
     @tile_hash = Hash.new()
     Array.new(@row_count) do |x|
       Array.new(@col_count) do |y|
         t = Tile.new(x: x, y: y, maze: self)
-        @tiles << t
         @tile_hash[t.key_str] = t
       end
     end
 
-    make_rooms
+
+    make_rooms_bsp
+
+    #make_rooms
 
     start_room, end_room = @rooms.sample(2)
     start_tile = start_room.tiles.sample
     end_tile = end_room.tiles.sample
-    start_tile.icon = "\033[34m<\033[0m"
-    end_tile.icon = "\033[34m>\033[0m"
-    begin
-      r1, r2 = @rooms.sample(2)
-      @passageways << connect_rooms(room1: r1, room2: r2)
-    end until (@rooms.map{|r| r.connected_rooms.count}.min != 0) && (!Pathway.new(start_tile: start_tile, end_tile: end_tile, method: :a_star, maze: self).tiles.nil?)
+
+    #begin
+    #  r1, r2 = @rooms.sample(2)
+    #  @passageways << connect_rooms(room1: r1, room2: r2)
+    #end until (@rooms.map{|r| r.connected_rooms.count}.min != 0) && (!Pathway.new(start_tile: start_tile, end_tile: end_tile, method: :a_star, maze: self).tiles.nil?)
     # @passageways.compact!
 
     #surrounds = surrounding_tiles(tiles: @passageways.map{|p| p.tiles}.flatten + @rooms.map{|r| r.tiles}.flatten)
     #surrounds.each do |s|
     # make_wall(s)
     #end
+    #
+    start_tile.icon = "🔺"
+    end_tile.icon = "🔻"
+  end
+
+  def make_rooms_bsp
+    tree = BspTree.new(row_range: (0..@row_count-1), column_range: (0..@col_count-1))
+
+    tree.coalesce(min_row_size: @room_min_rows, min_column_size: @room_min_columns)
+
+    leaves = tree.leaves
+
+    leaves.each do |leaf|
+      rows = leaf.row_range
+      cols = leaf.column_range
+
+      new_room = Room.new(row_range: rows, column_range: cols, maze: self, fill_space: false)
+      leaf.room = new_room
+      @rooms << new_room
+      new_room.tiles.each do |tile|
+        clear_tile(tile)
+      end
+    end
+
+    leaves.each do |l|
+      sib = l.sibling
+      connect_rooms(room1: l.room, room2: sib.room)
+    end
+
+    (tree.nodes - leaves - [tree.root]).each do |n|
+      sib = n.sibling
+      connect_rooms(room1: n.room, room2: sib.room)
+    end
+
   end
 
   def surrounding_tiles(tiles: tiles)
@@ -47,12 +81,7 @@ class Maze
   end
 
   def to_s
-    sorted_tiles.each_slice(@col_count) do |slice|
-      slice.each do |tile|
-        print tile
-      end
-      puts "\n"
-    end
+    fail "NOT IMPLEMENTED"
   end
 
   def neighbors(tile, include_diagonals: true)
@@ -85,6 +114,10 @@ class Maze
     @tile_hash.values_at(*tile_keys)
   end
 
+  def tiles
+    @tile_hash.values
+  end
+
   private
 
   def connect_rooms(room1:, room2:)
@@ -110,27 +143,27 @@ class Maze
   end
 
   def make_room
+    begin
     tl_tile = random_tile
-    room_width = rand(@room_min_width..@room_max_width)
-    room_height = rand(@room_min_height..@room_max_height)
+    room_width = rand(@room_min_columns..@room_max_columns)
+    room_height = rand(@room_min_rows..@room_max_rows)
 
-    cols = (@room_min_width..room_width).map{|col| col + tl_tile.y}.reject{|col| col >= @col_count - 1}
-    rows = (@room_min_height..room_height).map{|row| row + tl_tile.x}.reject{|row| row >= @row_count - 1}
+    cols = (@room_min_columns..room_width).map{|col| col + tl_tile.y}.reject{|col| col >= @col_count - 1}
+    rows = (@room_min_rows..room_height).map{|row| row + tl_tile.x}.reject{|row| row >= @row_count - 1}
+    end until (cols.count.between? @room_min_columns, @room_max_columns) && (rows.count.between? @room_min_rows, @room_min_columns)
 
-    return if cols.length < @room_min_width
-    return if rows.length <  @room_min_height
 
     tile_coords = rows.product cols
     tile_keys = tile_coords.map{|tc| tc.join("_")}
     room_tiles = @tile_hash.values_at(*tile_keys)
 
-    new_room = Room.new(rows: rows, cols: cols, maze: self)
+    new_room = Room.new(row_range: rows, column_range: cols, maze: self)
 
-    @rooms.each do |room|
-      if room.intersect(room: new_room)
-        return
-      end
-    end
+    #@rooms.each do |room|
+    #  if room.intersect(room: new_room)
+    #    return
+    #  end
+    #end
 
 
     room_tiles.each do |tile|
@@ -144,8 +177,6 @@ class Maze
     fail "Tile does not exist in this maze" unless @tile_hash.has_key?(tile.key_str)
     clear_tile = Opening.new(x: tile.x, y: tile.y, maze: self)
 
-    @tiles.delete(tile)
-    @tiles.push(clear_tile)
     @tile_hash[clear_tile.key_str] = clear_tile
     tile.neighbors.each do |n|
       n.dirty_neighbor = true
@@ -156,16 +187,11 @@ class Maze
     fail "Tile does not exist in this maze" unless @tile_hash.has_key?(tile.key_str)
     wall_tile = Wall.new(x: tile.x, y: tile.y, maze: self)
 
-    @tiles.delete(tile)
-    @tiles.push(wall_tile)
     @tile_hash[wall_tile.key_str] = wall_tile
     tile.neighbors.each do |n|
       n.dirty_neighbor = true
     end
   end
 
-  def sorted_tiles
-    @tiles.sort_by {|x| [x.x, x.y]}
-  end
 
 end
