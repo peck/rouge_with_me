@@ -33,7 +33,7 @@ class AsNode
     "[#{tile.x}, #{tile.y}], cost: #{g+h}"
   end
 
-  def tile_coords
+  def point
     [tile.x, tile.y]
   end
 end

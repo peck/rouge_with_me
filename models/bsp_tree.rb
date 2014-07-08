@@ -1,7 +1,8 @@
 class BspTree
   attr_reader :root
-  def initialize(row_range:, column_range:)
+  def initialize(row_range:, column_range:, levels:5)
     @root = BspNode.new(row_range: row_range, column_range: column_range)
+
   end
 
   def leaves
@@ -32,7 +33,7 @@ class BspTree
     begin
       keep_coalescing = false
       leaves.each do |l|
-        if l.row_range.size < min_row_size || l.column_range.size < min_column_size
+        if (l.row_range.size < min_row_size) || (l.column_range.size < min_column_size)
           keep_coalescing = true
           delete_node(l)
         end

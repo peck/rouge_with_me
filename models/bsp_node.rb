@@ -7,7 +7,14 @@ class BspNode
     @column_range = column_range
     @parent = parent
     @children = []
-    bisect unless level > 4
+    bisect if level < 5
+  end
+
+  def to_area
+    r_min = @row_range.min
+    c_min = @column_range.min
+
+    Area.new(point: Point.new(row: r_min, column: c_min), rows: @row_range.size, columns: @column_range.size)
   end
 
   def leaf?
@@ -36,9 +43,9 @@ class BspNode
       axis = hsh[axis_key]
       axis_size = axis.count
 
-      split_at = axis_size * rand(0.3..0.7)
+      split_at = axis_size * rand(0.45..0.55)
 
-      axis_min_maxes= [axis.to_a[1..split_at-1], axis.to_a[split_at+1..-2]].map(&:minmax)
+      axis_min_maxes= [axis.to_a[0...split_at], axis.to_a[split_at...-1]].map(&:minmax)
 
       hsh[:parent] = self
       axis_min_maxes.each do |min,max|

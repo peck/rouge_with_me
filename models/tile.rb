@@ -8,7 +8,11 @@ class Tile
     @y = y
     @maze = maze
     @dirty_neighbor = true
-    @icon = " "
+    @icon = "#"
+  end
+
+  def point
+    Point.new(row: @x, column: @y)
   end
 
   def <=>(other)

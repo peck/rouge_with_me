@@ -1,4 +1,5 @@
 require 'set'
+require 'priority_queue'
 class Pathway
 
   def initialize(start_tile:, end_tile:, maze:, method: :a_star)
@@ -10,8 +11,8 @@ class Pathway
     send(@method)
   end
 
-  def tiles
-    @maze.tiles_from_coords(coords: @coords)
+  def points
+    @coords
   end
 
   protected
@@ -25,11 +26,11 @@ class Pathway
     open_queue = PriorityQueue.new
 
     heur = ->(t1, t2){t1.distance(tile: t2)}
-
-    open_queue.add AsNode.new(tile: @start_tile, g: 0, h: heur.call(@start_tile, @end_tile), parent: nil )
+    n = AsNode.new(tile: @start_tile, g: 0, h: heur.call(@start_tile, @end_tile), parent: nil )
+    open_queue.push n, n.f
 
     begin
-      current_node = open_queue.next
+      current_node, priority = open_queue.delete_min
       closed_set.add(current_node)
 
       if with_tracing
@@ -39,7 +40,7 @@ class Pathway
 
       if current_node.tile == @end_tile
         begin
-          @coords << current_node.tile_coords
+          @coords << current_node.point
           current_node = current_node.parent
         end while current_node != nil
         return
@@ -47,7 +48,11 @@ class Pathway
       neighbors = current_node.tile.neighbors
       nodes = neighbors.map{|n| AsNode.new(tile: n, g: current_node.g + current_node.tile.distance(tile: n) + n.passable_cost, h: heur.call(n, @end_tile), parent: current_node)}
       nodes.each do |n|
-        open_queue.add(n) unless closed_set.include? n
+        if open_queue.has_key?(n)
+          existing, f = open_queue.delete(n)
+          n = [existing, n].min
+        end
+        open_queue.push(n, n.f) unless closed_set.include? n
       end
 
     end while !open_queue.empty?

@@ -6,6 +6,7 @@ class PriorityQueue
   def add(item)
     if existing = @list.find{|x| x == item}
       if item < existing
+        @list.delete(existing)
         @list << item
         @list.sort
       end
